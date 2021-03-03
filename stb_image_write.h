@@ -150,7 +150,7 @@ LICENSE
 #ifndef INCLUDE_STB_IMAGE_WRITE_H
 #define INCLUDE_STB_IMAGE_WRITE_H
 
-#include <stdlib.h>
+// @mc #include <stblib.h>
 
 // if STB_IMAGE_WRITE_STATIC causes problems, try defining STBIWDEF to 'inline' or 'static inline'
 #ifndef STBIWDEF
@@ -210,10 +210,13 @@ STBIWDEF void stbi_flip_vertically_on_write(int flip_boolean);
 #include <stdio.h>
 #endif // STBI_WRITE_NO_STDIO
 
+// @mc I commented these out
+#if 0
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#endif
 
 #if defined(STBIW_MALLOC) && defined(STBIW_FREE) && (defined(STBIW_REALLOC) || defined(STBIW_REALLOC_SIZED))
 // ok
@@ -245,6 +248,17 @@ STBIWDEF void stbi_flip_vertically_on_write(int flip_boolean);
 #endif
 
 #define STBIW_UCHAR(x) (unsigned char) ((x) & 0xff)
+
+// @mc I added these
+#ifndef STBIW_MEMCPY
+#define STBIW_MEMCPY(a,b,sz) memcpy(a,b,sz)
+#endif
+#ifndef STBIW_IABS
+#define STBIW_IABS(x) abs(x)
+#endif
+#ifndef STBIW_FREXP
+#define STBIW_FREXP(x) frexp(x)
+#endif
 
 #ifdef STB_IMAGE_WRITE_STATIC
 static int stbi_write_png_compression_level = 8;
@@ -630,7 +644,7 @@ static void stbiw__linear_to_rgbe(unsigned char *rgbe, float *linear)
    if (maxcomp < 1e-32f) {
       rgbe[0] = rgbe[1] = rgbe[2] = rgbe[3] = 0;
    } else {
-      float normalize = (float) frexp(maxcomp, &exponent) * 256.0f/maxcomp;
+      float normalize = (float) STBIW_FREXP(maxcomp, &exponent) * 256.0f/maxcomp;
 
       rgbe[0] = (unsigned char)(linear[0] * normalize);
       rgbe[1] = (unsigned char)(linear[1] * normalize);
@@ -996,7 +1010,8 @@ static unsigned int stbiw__crc32(unsigned char *buffer, int len)
 #ifdef STBIW_CRC32
     return STBIW_CRC32(buffer, len);
 #else
-   static unsigned int crc_table[256] =
+   // @mc Renamed this table to fix a Windows header naming conflict.
+   static unsigned int stbiw_crc_table[256] =
    {
       0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
       0x0eDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97D2D988, 0x09B64C2B, 0x7EB17CBD, 0xE7B82D07, 0x90BF1D91,
@@ -1035,7 +1050,7 @@ static unsigned int stbiw__crc32(unsigned char *buffer, int len)
    unsigned int crc = ~0u;
    int i;
    for (i=0; i < len; ++i)
-      crc = (crc >> 8) ^ crc_table[buffer[i] ^ (crc & 0xff)];
+      crc = (crc >> 8) ^ stbiw_crc_table[buffer[i] ^ (crc & 0xff)];
    return ~crc;
 #endif
 }
@@ -1052,7 +1067,7 @@ static void stbiw__wpcrc(unsigned char **data, int len)
 
 static unsigned char stbiw__paeth(int a, int b, int c)
 {
-   int p = a + b - c, pa = abs(p-a), pb = abs(p-b), pc = abs(p-c);
+   int p = a + b - c, pa = STBIW_IABS(p-a), pb = STBIW_IABS(p-b), pc = STBIW_IABS(p-c);
    if (pa <= pb && pa <= pc) return STBIW_UCHAR(a);
    if (pb <= pc) return STBIW_UCHAR(b);
    return STBIW_UCHAR(c);
@@ -1070,7 +1085,7 @@ static void stbiw__encode_png_line(unsigned char *pixels, int stride_bytes, int 
    int signed_stride = stbi__flip_vertically_on_write ? -stride_bytes : stride_bytes;
 
    if (type==0) {
-      memcpy(line_buffer, z, width*n);
+      STBIW_MEMCPY(line_buffer, z, width*n);
       return;
    }
 
@@ -1126,7 +1141,7 @@ STBIWDEF unsigned char *stbi_write_png_to_mem(const unsigned char *pixels, int s
             // Estimate the entropy of the line using this filter; the less, the better.
             est = 0;
             for (i = 0; i < x*n; ++i) {
-               est += abs((signed char) line_buffer[i]);
+               est += STBIW_IABS((signed char) line_buffer[i]);
             }
             if (est < best_filter_val) {
                best_filter_val = est;
